@@ -3,9 +3,21 @@
 """
 
 from .responses import SuccessResponse, ErrorResponse, PaginatedResponse
+from .stats_models import (
+    GlobalStats,
+    BookStats,
+    ChapterStats,
+    WritingProgress,
+    ContentAnalysis
+)
 
 __all__ = [
     "SuccessResponse",
     "ErrorResponse",
-    "PaginatedResponse"
+    "PaginatedResponse",
+    "GlobalStats",
+    "BookStats",
+    "ChapterStats",
+    "WritingProgress",
+    "ContentAnalysis"
 ]
