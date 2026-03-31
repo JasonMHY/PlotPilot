@@ -2,6 +2,8 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { bookApi, jobApi } from '../api/book'
+import { novelApi } from '../api/novel'
+import { chapterApi } from '../api/chapter'
 import { useStatsStore } from '../stores/statsStore'
 
 // Constants for magic numbers
@@ -54,18 +56,37 @@ export function useWorkbench(options: UseWorkbenchOptions) {
     return null
   })
 
+  const hasStructure = computed(() => {
+    return bookMeta.value.has_bible || bookMeta.value.has_outline
+  })
+
   // Methods
   const setRightPanel = (panel: 'bible' | 'knowledge') => {
     rightPanel.value = panel
   }
 
   const loadDesk = async () => {
-    const res = await bookApi.getDesk(slug)
-    bookTitle.value = res.book?.title || slug
-    chapters.value = res.chapters || []
+    // Use new novelApi and chapterApi instead of bookApi.getDesk
+    const [novelData, chaptersData] = await Promise.all([
+      novelApi.getNovel(slug),
+      chapterApi.listChapters(slug)
+    ])
+
+    bookTitle.value = novelData.title || slug
+
+    // Map ChapterDTO[] to the format expected by the UI
+    chapters.value = chaptersData.map(ch => ({
+      id: ch.number,
+      title: ch.title
+    }))
+
+    // Note: has_bible and has_outline are not in NovelDTO yet
+    // For now, we'll need to keep using bookApi.getDesk or add these fields to NovelDTO
+    // Temporary: fetch from old API for metadata
+    const deskData = await bookApi.getDesk(slug)
     bookMeta.value = {
-      has_bible: res.book?.has_bible,
-      has_outline: res.book?.has_outline,
+      has_bible: deskData.book?.has_bible,
+      has_outline: deskData.book?.has_outline,
     }
   }
 
@@ -219,6 +240,11 @@ export function useWorkbench(options: UseWorkbenchOptions) {
     // Current architecture uses delegation pattern
   }
 
+  const onMessagesUpdated = () => {
+    // Callback for when chat messages are updated
+    // Can be used to trigger side effects or refresh data
+  }
+
   // Cleanup on unmount
   onUnmounted(() => {
     stopPolling()
@@ -242,9 +268,11 @@ export function useWorkbench(options: UseWorkbenchOptions) {
 
     // Computed
     currentChapterId,
+    hasStructure,
 
     // Methods
     setRightPanel,
+    onMessagesUpdated,
     loadDesk,
     loadData,
     handleJobCompleted,
