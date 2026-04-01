@@ -18,10 +18,10 @@
           :class="{ 'is-active': currentChapterId === ch.id }"
           @click="handleChapterClick(ch.id)"
         >
-          <n-thing :title="`第${ch.id}章 ${ch.title || ''}`">
+          <n-thing :title="`第${ch.number}章`">
             <template #description>
-              <n-tag size="small" :type="ch.has_file ? 'success' : 'default'" round>
-                {{ ch.has_file ? '已收稿' : '未收稿' }}
+              <n-tag size="small" :type="ch.word_count > 0 ? 'success' : 'default'" round>
+                {{ ch.word_count > 0 ? '已收稿' : '未收稿' }}
               </n-tag>
             </template>
           </n-thing>
@@ -34,8 +34,9 @@
 <script setup lang="ts">
 interface Chapter {
   id: number
+  number: number
   title: string
-  has_file: boolean
+  word_count: number
 }
 
 interface ChapterListProps {
