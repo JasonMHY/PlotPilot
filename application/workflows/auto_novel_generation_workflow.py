@@ -8,6 +8,7 @@ from application.services.context_builder import ContextBuilder
 from application.services.state_extractor import StateExtractor
 from application.services.state_updater import StateUpdater
 from application.dtos.generation_result import GenerationResult
+from application.dtos.scene_director_dto import SceneDirectorAnalysis
 from domain.novel.services.consistency_checker import ConsistencyChecker
 from domain.novel.services.storyline_manager import StorylineManager
 from domain.novel.repositories.plot_arc_repository import PlotArcRepository
@@ -98,7 +99,8 @@ class AutoNovelGenerationWorkflow:
         self,
         novel_id: str,
         chapter_number: int,
-        outline: str
+        outline: str,
+        scene_director: Optional[SceneDirectorAnalysis] = None
     ) -> GenerationResult:
         """生成章节（完整工作流）
 
@@ -106,6 +108,7 @@ class AutoNovelGenerationWorkflow:
             novel_id: 小说 ID
             chapter_number: 章节号
             outline: 章节大纲
+            scene_director: 可选的场记分析结果，用于过滤角色和地点
 
         Returns:
             GenerationResult 包含内容、一致性报告、上下文和 token 数
@@ -134,13 +137,15 @@ class AutoNovelGenerationWorkflow:
 
         # Phase 2: Pre-Generation - 构建上下文
         logger.info("阶段 2: 预生成 - 构建上下文")
-        context = self.context_builder.build_context(
+        payload = self.context_builder.build_structured_context(
             novel_id=novel_id,
             chapter_number=chapter_number,
             outline=outline,
-            max_tokens=35000
+            max_tokens=35000,
+            scene_director=scene_director
         )
-        context_tokens = self.context_builder.estimate_tokens(context)
+        context = f"{payload['layer1_text']}\n\n=== SMART RETRIEVAL ===\n{payload['layer2_text']}\n\n=== RECENT CONTEXT ===\n{payload['layer3_text']}"
+        context_tokens = payload['token_usage']['total']
         logger.info(f"  ✓ 上下文已构建: {len(context)} 字符, 约 {context_tokens} tokens")
 
         # Phase 3: Generation - 调用 LLM
@@ -175,7 +180,7 @@ class AutoNovelGenerationWorkflow:
 
         # Phase 5: Review - 返回结果
         logger.info(f"阶段 5: 完成 - 章节生成完成")
-        token_count = self.context_builder.estimate_tokens(context)
+        token_count = context_tokens
         logger.info(f"  ✓ 总计: {len(content)} 字符, {token_count} tokens")
         logger.info(f"========================================")
         logger.info(f"章节生成完成: 小说={novel_id}, 章节={chapter_number}")
@@ -192,7 +197,8 @@ class AutoNovelGenerationWorkflow:
         self,
         novel_id: str,
         chapter_number: int,
-        outline: str
+        outline: str,
+        scene_director: Optional[SceneDirectorAnalysis] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成章节：阶段事件 + 正文 token 流 + 最终 done（含一致性报告）。
 
@@ -220,13 +226,15 @@ class AutoNovelGenerationWorkflow:
 
             yield {"type": "phase", "phase": "context"}
             logger.info("阶段 2: 预生成 - 构建上下文")
-            context = self.context_builder.build_context(
+            payload = self.context_builder.build_structured_context(
                 novel_id=novel_id,
                 chapter_number=chapter_number,
                 outline=outline,
                 max_tokens=35000,
+                scene_director=scene_director
             )
-            context_tokens = self.context_builder.estimate_tokens(context)
+            context = f"{payload['layer1_text']}\n\n=== SMART RETRIEVAL ===\n{payload['layer2_text']}\n\n=== RECENT CONTEXT ===\n{payload['layer3_text']}"
+            context_tokens = payload['token_usage']['total']
             logger.info(f"  ✓ 上下文已构建: {len(context)} 字符, 约 {context_tokens} tokens")
 
             yield {"type": "phase", "phase": "llm"}
@@ -270,7 +278,7 @@ class AutoNovelGenerationWorkflow:
                 except Exception as e:
                     logger.warning(f"  × StateUpdater 失败: {e}")
 
-            token_count = self.context_builder.estimate_tokens(context)
+            token_count = context_tokens
             logger.info(f"========================================")
             logger.info(f"流式章节生成完成: 小说={novel_id}, 章节={chapter_number}")
             logger.info(f"========================================")

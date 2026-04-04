@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from application.workflows.auto_novel_generation_workflow import AutoNovelGenerationWorkflow
 from application.services.hosted_write_service import HostedWriteService
+from application.dtos.scene_director_dto import SceneDirectorAnalysis
 from domain.novel.services.storyline_manager import StorylineManager
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ class GenerateChapterRequest(BaseModel):
     """生成章节请求"""
     chapter_number: int = Field(..., gt=0, description="章节号（必须 > 0）")
     outline: str = Field(..., min_length=1, description="章节大纲")
+    scene_director_result: Optional[dict] = Field(None, description="可选的场记分析结果")
 
 
 class ConsistencyIssueResponse(BaseModel):
@@ -158,10 +160,16 @@ async def generate_chapter(
     logger.info(f"  大纲长度: {len(request.outline)} 字符")
 
     try:
+        # 转换 scene_director_result 为 SceneDirectorAnalysis（如果提供）
+        scene_director = None
+        if request.scene_director_result:
+            scene_director = SceneDirectorAnalysis(**request.scene_director_result)
+
         result = await workflow.generate_chapter(
             novel_id=novel_id,
             chapter_number=request.chapter_number,
-            outline=request.outline
+            outline=request.outline,
+            scene_director=scene_director
         )
 
         # 转换一致性报告
@@ -244,10 +252,16 @@ async def generate_chapter_stream(
     logger.info(f"  大纲长度: {len(request.outline)} 字符")
 
     async def event_gen():
+        # 转换 scene_director_result 为 SceneDirectorAnalysis（如果提供）
+        scene_director = None
+        if request.scene_director_result:
+            scene_director = SceneDirectorAnalysis(**request.scene_director_result)
+
         async for event in workflow.generate_chapter_stream(
             novel_id=novel_id,
             chapter_number=request.chapter_number,
             outline=request.outline,
+            scene_director=scene_director
         ):
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 

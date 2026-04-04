@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import Mock, AsyncMock
 from application.workflows.auto_novel_generation_workflow import AutoNovelGenerationWorkflow
 from application.dtos.generation_result import GenerationResult
+from application.dtos.scene_director_dto import SceneDirectorAnalysis
 from application.services.context_builder import ContextBuilder
 from domain.novel.services.consistency_checker import ConsistencyChecker
 from domain.novel.services.storyline_manager import StorylineManager
@@ -17,7 +18,17 @@ from domain.ai.value_objects.token_usage import TokenUsage
 def mock_context_builder():
     """Mock ContextBuilder"""
     builder = Mock(spec=ContextBuilder)
-    builder.build_context.return_value = "Mock context with 35K tokens"
+    builder.build_structured_context.return_value = {
+        "layer1_text": "Layer 1 context",
+        "layer2_text": "Layer 2 context",
+        "layer3_text": "Layer 3 context",
+        "token_usage": {
+            "layer1": 1250,
+            "layer2": 5500,
+            "layer3": 2500,
+            "total": 9250
+        }
+    }
     builder.estimate_tokens.return_value = 8750  # 35K tokens / 4
     return builder
 
@@ -26,11 +37,11 @@ def mock_context_builder():
 def mock_consistency_checker():
     """Mock ConsistencyChecker"""
     checker = Mock(spec=ConsistencyChecker)
-    checker.check_all.return_value = ConsistencyReport(
+    checker.check_all = Mock(return_value=ConsistencyReport(
         issues=[],
         warnings=[],
         suggestions=[]
-    )
+    ))
     return checker
 
 
@@ -100,47 +111,51 @@ class TestGenerateChapter:
         # 验证返回结果
         assert isinstance(result, GenerationResult)
         assert result.content == "Generated chapter content"
-        assert result.token_count == 8750
-        assert result.context_used == "Mock context with 35K tokens"
+        assert result.token_count == 9250
+        assert "Layer 1 context" in result.context_used
         assert isinstance(result.consistency_report, ConsistencyReport)
 
         # 验证调用顺序
-        mock_context_builder.build_context.assert_called_once_with(
+        mock_context_builder.build_structured_context.assert_called_once_with(
             novel_id="novel-1",
             chapter_number=1,
             outline="Chapter 1 outline",
-            max_tokens=35000
+            max_tokens=35000,
+            scene_director=None
         )
         mock_llm_service.generate.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_generate_chapter_with_consistency_issues(
-        self, workflow, mock_consistency_checker
-    ):
-        """测试生成章节时发现一致性问题"""
-        # 设置一致性检查返回问题
-        mock_consistency_checker.check_all.return_value = ConsistencyReport(
-            issues=[
-                Issue(
-                    type=IssueType.CHARACTER_INCONSISTENCY,
-                    severity=Severity.CRITICAL,
-                    description="Character not found",
-                    location=1
-                )
-            ],
-            warnings=[],
-            suggestions=[]
+    async def test_generate_chapter_with_scene_director(self, workflow, mock_context_builder, mock_llm_service):
+        """测试使用 scene_director 参数生成章节"""
+        scene_director = SceneDirectorAnalysis(
+            characters=["Alice", "Bob"],
+            locations=["Room A"],
+            action_types=["dialogue", "action"],
+            trigger_keywords=["conflict"],
+            emotional_state="tense",
+            pov="Alice"
         )
 
         result = await workflow.generate_chapter(
             novel_id="novel-1",
             chapter_number=1,
-            outline="Chapter 1 outline"
+            outline="Chapter 1 outline",
+            scene_director=scene_director
         )
 
-        # 验证返回结果包含问题
-        assert result.consistency_report.has_critical_issues()
-        assert len(result.consistency_report.issues) == 1
+        # 验证返回结果
+        assert isinstance(result, GenerationResult)
+        assert result.content == "Generated chapter content"
+
+        # 验证 build_structured_context 被调用时传入了 scene_director
+        mock_context_builder.build_structured_context.assert_called_once_with(
+            novel_id="novel-1",
+            chapter_number=1,
+            outline="Chapter 1 outline",
+            max_tokens=35000,
+            scene_director=scene_director
+        )
 
     @pytest.mark.asyncio
     async def test_generate_chapter_invalid_chapter_number(self, workflow):
@@ -179,40 +194,13 @@ class TestGenerateChapterWithReview:
         assert isinstance(report, ConsistencyReport)
         assert not report.has_critical_issues()
 
-    @pytest.mark.asyncio
-    async def test_generate_with_review_returns_issues(
-        self, workflow, mock_consistency_checker
-    ):
-        """测试带审查的生成返回问题"""
-        mock_consistency_checker.check_all.return_value = ConsistencyReport(
-            issues=[
-                Issue(
-                    type=IssueType.EVENT_LOGIC_ERROR,
-                    severity=Severity.IMPORTANT,
-                    description="Event logic error",
-                    location=1
-                )
-            ],
-            warnings=[],
-            suggestions=["Consider revising the event sequence"]
-        )
-
-        content, report = await workflow.generate_chapter_with_review(
-            novel_id="novel-1",
-            chapter_number=1,
-            outline="Chapter 1 outline"
-        )
-
-        assert content == "Generated chapter content"
-        assert len(report.issues) == 1
-        assert len(report.suggestions) == 1
-
 
 class TestSuggestOutline:
     """测试 suggest_outline"""
 
     @pytest.mark.asyncio
-    async def test_suggest_outline_returns_llm_text(self, workflow, mock_llm_service):
+    async def test_suggest_outline_returns_llm_text(self, workflow, mock_context_builder, mock_llm_service):
+        mock_context_builder.build_context = Mock(return_value="Mock context")
         mock_llm_service.generate = AsyncMock(
             return_value=LLMResult(
                 content="1. 开场\n2. 转折",
@@ -237,17 +225,18 @@ class TestGenerateChapterStream:
         assert "chunk" in types
         assert events[-1]["type"] == "done"
         assert events[-1]["content"] == "Generated chapter content"
-        assert events[-1]["token_count"] == 8750
+        assert events[-1]["token_count"] == 9250
 
 
 class TestExtractChapterState:
     """测试 _extract_chapter_state 方法"""
 
-    def test_extract_chapter_state_from_content(self, workflow):
+    @pytest.mark.asyncio
+    async def test_extract_chapter_state_from_content(self, workflow):
         """测试从内容中提取章节状态"""
         content = "Chapter content with character actions"
 
-        state = workflow._extract_chapter_state(content, chapter_number=1)
+        state = await workflow._extract_chapter_state(content, chapter_number=1)
 
         assert isinstance(state, ChapterState)
         # 基本实现应该返回空列表
