@@ -27,9 +27,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { knowledgeApi } from '../api/knowledge'
-import GraphChart from './charts/GraphChart.vue'
-import { convertGraph, type VisNode, type VisEdge, type EChartsGraphData } from '../utils/visToEcharts'
+import { knowledgeApi } from '../../api/knowledge'
+import GraphChart from '../charts/GraphChart.vue'
+import { convertGraph, type VisNode, type VisEdge, type EChartsGraphData } from '../../utils/visToEcharts'
 
 const props = defineProps<{ slug: string }>()
 

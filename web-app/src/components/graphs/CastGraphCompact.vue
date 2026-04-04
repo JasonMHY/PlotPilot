@@ -21,14 +21,14 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { knowledgeApi } from '../api/knowledge'
-import GraphChart from './charts/GraphChart.vue'
-import { convertGraph, type VisNode, type VisEdge } from '../utils/visToEcharts'
-import type { EChartsNode, EChartsLink } from '../utils/visToEcharts'
+import { knowledgeApi } from '../../api/knowledge'
+import GraphChart from '../charts/GraphChart.vue'
+import { convertGraph, type VisNode, type VisEdge } from '../../utils/visToEcharts'
+import type { EChartsNode, EChartsLink } from '../../utils/visToEcharts'
 import {
   tripleStringAttrs,
   characterImportanceZh,
-} from '../utils/knowledgeFactDisplay'
+} from '../../utils/knowledgeFactDisplay'
 
 const props = defineProps<{ slug: string }>()
 const router = useRouter()

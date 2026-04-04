@@ -53,10 +53,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
-import { knowledgeApi, type ChapterSummary } from '../api/knowledge'
-import GraphChart from './charts/GraphChart.vue'
+import { knowledgeApi, type ChapterSummary } from '../../api/knowledge'
+import GraphChart from '../charts/GraphChart.vue'
 import KnowledgeTriplesTableEditor from './KnowledgeTriplesTableEditor.vue'
-import { convertGraph, type VisNode, type VisEdge, type EChartsGraphData } from '../utils/visToEcharts'
+import { convertGraph, type VisNode, type VisEdge, type EChartsGraphData } from '../../utils/visToEcharts'
 
 const props = defineProps<{ slug: string }>()
 const message = useMessage()

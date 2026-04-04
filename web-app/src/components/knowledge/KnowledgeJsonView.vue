@@ -23,7 +23,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
-import { knowledgeApi, type ChapterSummary } from '../api/knowledge'
+import { knowledgeApi, type ChapterSummary } from '../../api/knowledge'
 
 const props = defineProps<{ slug: string }>()
 const emit = defineEmits<{ reload: [] }>()

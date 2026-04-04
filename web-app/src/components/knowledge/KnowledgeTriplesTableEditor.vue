@@ -92,7 +92,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
-import { knowledgeApi, type ChapterSummary, type KnowledgeTriple } from '../api/knowledge'
+import { knowledgeApi, type ChapterSummary, type KnowledgeTriple } from '../../api/knowledge'
 
 const props = withDefaults(
   defineProps<{

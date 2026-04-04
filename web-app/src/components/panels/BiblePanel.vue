@@ -95,8 +95,8 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
 import { useMessage } from 'naive-ui'
-import { bibleApi } from '../api/bible'
-import type { CharacterDTO, LocationDTO, TimelineNoteDTO, StyleNoteDTO } from '../api/bible'
+import { bibleApi } from '../../api/bible'
+import type { CharacterDTO, LocationDTO, TimelineNoteDTO, StyleNoteDTO } from '../../api/bible'
 
 
 

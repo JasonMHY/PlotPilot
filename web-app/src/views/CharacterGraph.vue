@@ -28,7 +28,7 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NPageHeader, NButton, NSpace, NIcon } from 'naive-ui'
 import { RefreshOutline } from '@vicons/ionicons5'
-import CharacterRelationGraph from '../components/CharacterRelationGraph.vue'
+import CharacterRelationGraph from '../components/graphs/CharacterRelationGraph.vue'
 
 const route = useRoute()
 const router = useRouter()

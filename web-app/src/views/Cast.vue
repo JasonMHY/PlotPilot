@@ -197,7 +197,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import GraphChart from '../components/charts/GraphChart.vue'
-import KnowledgeTriplesTableEditor from '../components/KnowledgeTriplesTableEditor.vue'
+import KnowledgeTriplesTableEditor from '../components/knowledge/KnowledgeTriplesTableEditor.vue'
 import { convertGraph, type VisNode, type VisEdge, type EChartsNode, type EChartsLink } from '../utils/visToEcharts'
 import { castApi } from '../api/cast'
 

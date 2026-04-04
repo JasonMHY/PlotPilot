@@ -58,8 +58,8 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import BiblePanel from '../BiblePanel.vue'
-import KnowledgePanel from '../KnowledgePanel.vue'
+import BiblePanel from '../panels/BiblePanel.vue'
+import KnowledgePanel from '../knowledge/KnowledgePanel.vue'
 import WorldbuildingPanel from './WorldbuildingPanel.vue'
 import StorylinePanel from './StorylinePanel.vue'
 import PlotArcPanel from './PlotArcPanel.vue'

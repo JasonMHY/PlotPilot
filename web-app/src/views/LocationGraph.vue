@@ -116,8 +116,8 @@ import {
   NDrawerContent,
 } from 'naive-ui'
 import { RefreshOutline } from '@vicons/ionicons5'
-import LocationRelationGraph from '../components/LocationRelationGraph.vue'
-import KnowledgeTriplesTableEditor from '../components/KnowledgeTriplesTableEditor.vue'
+import LocationRelationGraph from '../components/graphs/LocationRelationGraph.vue'
+import KnowledgeTriplesTableEditor from '../components/knowledge/KnowledgeTriplesTableEditor.vue'
 import type { EChartsNode } from '../utils/visToEcharts'
 import type { ComponentPublicInstance } from 'vue'
 

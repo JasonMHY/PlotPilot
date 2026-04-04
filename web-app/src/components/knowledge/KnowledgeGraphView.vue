@@ -10,9 +10,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
-import { knowledgeApi } from '../api/knowledge'
-import GraphChart from './charts/GraphChart.vue'
-import { convertGraph, type VisNode, type VisEdge, type EChartsGraphData } from '../utils/visToEcharts'
+import { knowledgeApi } from '../../api/knowledge'
+import GraphChart from '../charts/GraphChart.vue'
+import { convertGraph, type VisNode, type VisEdge, type EChartsGraphData } from '../../utils/visToEcharts'
 
 const props = defineProps<{ slug: string }>()
 const emit = defineEmits<{ reload: [] }>()
