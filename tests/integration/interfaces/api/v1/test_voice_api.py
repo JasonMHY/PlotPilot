@@ -185,3 +185,69 @@ class TestVoiceAPI:
 
         # Verify all sample IDs are unique
         assert len(sample_ids) == len(set(sample_ids))
+
+    def test_get_fingerprint_after_samples(self, client, test_novel_id):
+        """测试创建 10 条样本后获取指纹"""
+        # Arrange - Create 10 samples to trigger fingerprint computation
+        for i in range(10):
+            request_data = {
+                "ai_original": f"这是第{i+1}个美丽的样本。天气很温柔！",
+                "author_refined": f"这是第{i+1}个漂亮的样本。天气真好！",
+                "chapter_number": i + 1,
+                "scene_type": "general"
+            }
+            response = client.post(
+                f"/api/v1/novels/{test_novel_id}/voice/samples",
+                json=request_data
+            )
+            assert response.status_code == 201
+
+        # Act - Get fingerprint
+        response = client.get(f"/api/v1/novels/{test_novel_id}/voice/fingerprint")
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert "adjective_density" in data
+        assert "avg_sentence_length" in data
+        assert "sentence_count" in data
+        assert "sample_count" in data
+        assert "last_updated" in data
+        assert data["sample_count"] == 10
+        assert data["adjective_density"] >= 0
+        assert data["avg_sentence_length"] > 0
+        assert data["sentence_count"] > 0
+
+    def test_get_fingerprint_not_found(self, client, test_novel_id):
+        """测试无样本时获取指纹返回 404"""
+        # Act - Try to get fingerprint without any samples
+        response = client.get(f"/api/v1/novels/{test_novel_id}/voice/fingerprint")
+
+        # Assert
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    def test_get_fingerprint_with_pov_character(self, client, test_novel_id):
+        """测试使用 POV 角色 ID 获取指纹"""
+        # Arrange - Create 10 samples (fingerprint will be computed without POV)
+        for i in range(10):
+            request_data = {
+                "ai_original": f"样本{i+1}的内容。",
+                "author_refined": f"样本{i+1}的改稿。",
+                "chapter_number": i + 1,
+                "scene_type": "general"
+            }
+            response = client.post(
+                f"/api/v1/novels/{test_novel_id}/voice/samples",
+                json=request_data
+            )
+            assert response.status_code == 201
+
+        # Act - Try to get fingerprint with POV character (should not exist)
+        response = client.get(
+            f"/api/v1/novels/{test_novel_id}/voice/fingerprint",
+            params={"pov_character_id": "char-123"}
+        )
+
+        # Assert - Should return 404 since we didn't create samples with POV
+        assert response.status_code == 404

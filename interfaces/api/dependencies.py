@@ -22,6 +22,7 @@ from infrastructure.persistence.database.sqlite_bible_repository import SqliteBi
 from infrastructure.persistence.database.sqlite_storyline_repository import SqliteStorylineRepository
 from infrastructure.persistence.database.sqlite_plot_arc_repository import SqlitePlotArcRepository
 from infrastructure.persistence.database.sqlite_voice_vault_repository import SqliteVoiceVaultRepository
+from infrastructure.persistence.database.sqlite_voice_fingerprint_repository import SQLiteVoiceFingerprintRepository
 from infrastructure.persistence.database.story_node_repository import StoryNodeRepository
 from infrastructure.persistence.repositories.file_cast_repository import FileCastRepository
 from infrastructure.persistence.repositories.file_knowledge_repository import FileKnowledgeRepository
@@ -35,6 +36,7 @@ from application.services.bible_service import BibleService
 from application.services.cast_service import CastService
 from application.services.knowledge_service import KnowledgeService
 from application.services.voice_sample_service import VoiceSampleService
+from application.services.voice_fingerprint_service import VoiceFingerprintService
 from application.services.context_builder import ContextBuilder
 from application.services.auto_bible_generator import AutoBibleGenerator
 from application.services.auto_knowledge_generator import AutoKnowledgeGenerator
@@ -482,10 +484,34 @@ def get_voice_vault_repository() -> SqliteVoiceVaultRepository:
     return SqliteVoiceVaultRepository(get_database())
 
 
+def get_voice_fingerprint_repository() -> SQLiteVoiceFingerprintRepository:
+    """获取 Voice Fingerprint 仓储（SQLite）
+
+    Returns:
+        SQLiteVoiceFingerprintRepository 实例
+    """
+    return SQLiteVoiceFingerprintRepository(get_database())
+
+
 def get_voice_sample_service() -> VoiceSampleService:
     """获取文风样本服务
 
     Returns:
         VoiceSampleService 实例
     """
-    return VoiceSampleService(get_voice_vault_repository())
+    return VoiceSampleService(
+        get_voice_vault_repository(),
+        fingerprint_service=get_voice_fingerprint_service()
+    )
+
+
+def get_voice_fingerprint_service() -> VoiceFingerprintService:
+    """获取文风指纹服务
+
+    Returns:
+        VoiceFingerprintService 实例
+    """
+    return VoiceFingerprintService(
+        get_voice_fingerprint_repository(),
+        get_voice_vault_repository()
+    )

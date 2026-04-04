@@ -1,10 +1,13 @@
 """Voice API 路由"""
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 from typing import Optional
 
 from application.services.voice_sample_service import VoiceSampleService
-from interfaces.api.dependencies import get_voice_sample_service
+from interfaces.api.dependencies import (
+    get_voice_sample_service,
+    get_voice_fingerprint_service,
+)
 from domain.shared.exceptions import EntityNotFoundError
 
 
@@ -24,6 +27,15 @@ class VoiceSampleRequest(BaseModel):
 class VoiceSampleResponse(BaseModel):
     """文风样本响应"""
     sample_id: str = Field(..., description="样本 ID")
+
+
+class VoiceFingerprintResponse(BaseModel):
+    """文风指纹响应"""
+    adjective_density: float = Field(..., description="形容词密度")
+    avg_sentence_length: float = Field(..., description="平均句长")
+    sentence_count: int = Field(..., description="句子数量")
+    sample_count: int = Field(..., description="样本数量")
+    last_updated: str = Field(..., description="最后更新时间")
 
 
 @router.post(
@@ -62,3 +74,47 @@ def create_voice_sample(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create voice sample: {str(e)}")
+
+
+@router.get(
+    "/novels/{novel_id}/voice/fingerprint",
+    response_model=VoiceFingerprintResponse,
+    status_code=200,
+    summary="获取文风指纹",
+    description="获取小说的文风指纹统计数据"
+)
+def get_voice_fingerprint(
+    novel_id: str = Path(..., description="小说 ID"),
+    pov_character_id: Optional[str] = Query(None, description="POV 角色 ID"),
+    service=Depends(get_voice_fingerprint_service)
+) -> VoiceFingerprintResponse:
+    """
+    获取文风指纹
+
+    Args:
+        novel_id: 小说 ID
+        pov_character_id: 可选的 POV 角色 ID
+        service: 文风指纹服务
+
+    Returns:
+        VoiceFingerprintResponse: 文风指纹数据
+    """
+    try:
+        fingerprint = service.fingerprint_repo.get_by_novel(novel_id, pov_character_id)
+        if not fingerprint:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Voice fingerprint not found for novel {novel_id}"
+            )
+
+        return VoiceFingerprintResponse(
+            adjective_density=fingerprint["adjective_density"],
+            avg_sentence_length=fingerprint["avg_sentence_length"],
+            sentence_count=fingerprint["sentence_count"],
+            sample_count=fingerprint["sample_count"],
+            last_updated=fingerprint["last_updated"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get voice fingerprint: {str(e)}")

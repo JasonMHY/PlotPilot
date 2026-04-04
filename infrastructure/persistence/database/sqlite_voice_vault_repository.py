@@ -68,3 +68,17 @@ class SqliteVoiceVaultRepository(VoiceVaultRepository):
         sql = "SELECT COUNT(*) as count FROM voice_vault WHERE novel_id = ?"
         row = self.db.fetch_one(sql, (novel_id,))
         return row['count'] if row else 0
+
+    def get_by_novel(
+        self, novel_id: str, pov_character_id: Optional[str] = None
+    ) -> List[dict]:
+        """获取小说的所有样本（用于指纹计算）"""
+        # Note: Current schema doesn't have pov_character_id, so we ignore it for now
+        sql = """
+            SELECT author_refined as content
+            FROM voice_vault
+            WHERE novel_id = ?
+            ORDER BY created_at ASC
+        """
+        rows = self.db.fetch_all(sql, (novel_id,))
+        return [dict(row) for row in rows]

@@ -58,3 +58,19 @@ class VoiceVaultRepository(ABC):
             样本数量
         """
         pass
+
+    @abstractmethod
+    def get_by_novel(
+        self, novel_id: str, pov_character_id: Optional[str] = None
+    ) -> List[dict]:
+        """
+        获取小说的所有样本（用于指纹计算）
+
+        Args:
+            novel_id: 小说 ID
+            pov_character_id: 可选的 POV 角色 ID
+
+        Returns:
+            样本列表，每个样本包含 content 字段
+        """
+        pass

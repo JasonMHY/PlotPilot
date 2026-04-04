@@ -11,8 +11,13 @@ logger = logging.getLogger(__name__)
 class VoiceSampleService:
     """文风样本服务"""
 
-    def __init__(self, voice_vault_repository: VoiceVaultRepository):
+    def __init__(
+        self,
+        voice_vault_repository: VoiceVaultRepository,
+        fingerprint_service=None,
+    ):
         self.voice_vault_repository = voice_vault_repository
+        self.fingerprint_service = fingerprint_service
 
     def append_sample(
         self,
@@ -53,6 +58,12 @@ class VoiceSampleService:
             f"Appended voice sample {sample_id} for novel {novel_id}, "
             f"chapter {chapter_number}, edit_distance={diff_analysis['edit_distance']}"
         )
+
+        # Trigger fingerprint recompute if threshold reached
+        if self.fingerprint_service:
+            recomputed = self.fingerprint_service.maybe_recompute(novel_id)
+            if recomputed:
+                logger.info(f"Fingerprint recomputed for novel {novel_id}")
 
         return sample_id
 
