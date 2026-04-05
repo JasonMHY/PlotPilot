@@ -1,81 +1,76 @@
 <template>
   <div class="right-panel">
-    <n-tabs v-model:value="activeTab" type="line" size="small" animated class="settings-tabs" tab-style="min-width:60px" :tabs-padding="8">
-      <n-tab-pane name="worldbuilding" tab="世界观">
-        <WorldbuildingPanel :slug="slug" />
-      </n-tab-pane>
+    <!-- 一级分组切换 -->
+    <div class="group-bar">
+      <n-radio-group v-model:value="activeGroup" size="small" class="group-switch">
+        <n-radio-button value="settings">创作设定</n-radio-button>
+        <n-radio-button value="tools">辅助工具</n-radio-button>
+      </n-radio-group>
+      <n-text v-if="currentChapter" depth="3" style="font-size:11px;flex-shrink:0">
+        第{{ currentChapter.number }}章
+        <n-tag :type="currentChapter.word_count > 0 ? 'success' : 'default'" size="tiny" round style="margin-left:4px">
+          {{ currentChapter.word_count > 0 ? '已收稿' : '未收稿' }}
+        </n-tag>
+      </n-text>
+    </div>
 
+    <!-- 创作设定：世界观 / 作品设定 / 知识库 / 故事线 / 情节弧线 / 时间线 / 伏笔 -->
+    <n-tabs
+      v-if="activeGroup === 'settings'"
+      v-model:value="settingsTab"
+      type="line"
+      size="small"
+      class="settings-tabs"
+      :tabs-padding="8"
+    >
       <n-tab-pane name="bible" tab="作品设定">
         <BiblePanel :key="bibleKey" :slug="slug" />
       </n-tab-pane>
-
+      <n-tab-pane name="worldbuilding" tab="世界观">
+        <WorldbuildingPanel :slug="slug" />
+      </n-tab-pane>
       <n-tab-pane name="knowledge" tab="知识库">
         <KnowledgePanel :slug="slug" />
       </n-tab-pane>
-
       <n-tab-pane name="storylines" tab="故事线">
         <StorylinePanel :slug="slug" />
       </n-tab-pane>
-
-      <n-tab-pane name="plot-arc" tab="情节弧线">
+      <n-tab-pane name="plot-arc" tab="情节弧">
         <PlotArcPanel :slug="slug" />
       </n-tab-pane>
-
       <n-tab-pane name="timeline" tab="时间线">
         <TimelinePanel :slug="slug" />
       </n-tab-pane>
-
       <n-tab-pane name="foreshadow" tab="伏笔">
         <ForeshadowLedgerPanel :slug="slug" />
       </n-tab-pane>
+    </n-tabs>
 
-      <n-tab-pane name="macro-refactor" tab="重构扫描">
-        <MacroRefactorPanel :slug="slug" />
-      </n-tab-pane>
-
+    <!-- 辅助工具：章节元素 / 对话沙盒 / 重构扫描 / 文风漂移 -->
+    <n-tabs
+      v-if="activeGroup === 'tools'"
+      v-model:value="toolsTab"
+      type="line"
+      size="small"
+      class="settings-tabs"
+      :tabs-padding="8"
+    >
       <n-tab-pane name="chapter-elements" tab="章节元素">
         <ChapterElementPanel
           :slug="slug"
           :current-chapter-number="currentChapter?.number ?? null"
         />
       </n-tab-pane>
-
       <n-tab-pane name="sandbox" tab="对话沙盒">
         <SandboxDialoguePanel :slug="slug" />
       </n-tab-pane>
-
       <n-tab-pane name="voice-drift" tab="文风漂移">
         <VoiceDriftPanel :slug="slug" />
       </n-tab-pane>
+      <n-tab-pane name="macro-refactor" tab="重构扫描">
+        <MacroRefactorPanel :slug="slug" />
+      </n-tab-pane>
     </n-tabs>
-
-    <!-- Chapter Info Card -->
-    <div v-if="currentChapter" class="chapter-info-card">
-      <n-card size="small" :bordered="false" title="当前章节">
-        <n-space vertical :size="12">
-          <div class="info-row">
-            <n-text depth="3">章节号:</n-text>
-            <n-text strong>第{{ currentChapter.number }}章</n-text>
-          </div>
-          <div class="info-row">
-            <n-text depth="3">标题:</n-text>
-            <n-text>{{ currentChapter.title || '未设置' }}</n-text>
-          </div>
-          <div class="info-row">
-            <n-text depth="3">字数:</n-text>
-            <n-tag :type="currentChapter.word_count > 0 ? 'success' : 'default'" size="small">
-              {{ currentChapter.word_count }} 字
-            </n-tag>
-          </div>
-          <div class="info-row">
-            <n-text depth="3">状态:</n-text>
-            <n-tag :type="currentChapter.word_count > 0 ? 'success' : 'default'" size="small" round>
-              {{ currentChapter.word_count > 0 ? '已收稿' : '未收稿' }}
-            </n-tag>
-          </div>
-        </n-space>
-      </n-card>
-    </div>
   </div>
 </template>
 
@@ -93,6 +88,9 @@ import ChapterElementPanel from './ChapterElementPanel.vue'
 import SandboxDialoguePanel from './SandboxDialoguePanel.vue'
 import VoiceDriftPanel from './VoiceDriftPanel.vue'
 
+const SETTINGS_TABS = new Set(['bible', 'worldbuilding', 'knowledge', 'storylines', 'plot-arc', 'timeline', 'foreshadow'])
+const TOOLS_TABS = new Set(['chapter-elements', 'sandbox', 'voice-drift', 'macro-refactor'])
+
 interface Chapter {
   id: number
   number: number
@@ -102,7 +100,6 @@ interface Chapter {
 
 interface Props {
   slug: string
-  /** 当前激活的右侧面板 tab 名称 */
   currentPanel?: string
   bibleKey?: number
   currentChapter?: Chapter | null
@@ -114,10 +111,21 @@ const props = withDefaults(defineProps<Props>(), {
   currentChapter: null,
 })
 
-const activeTab = ref<string>(props.currentPanel)
+const activeGroup = ref<'settings' | 'tools'>(
+  TOOLS_TABS.has(props.currentPanel ?? '') ? 'tools' : 'settings'
+)
+const settingsTab = ref(SETTINGS_TABS.has(props.currentPanel ?? '') ? props.currentPanel! : 'bible')
+const toolsTab = ref(TOOLS_TABS.has(props.currentPanel ?? '') ? props.currentPanel! : 'chapter-elements')
 
 watch(() => props.currentPanel, (newVal) => {
-  activeTab.value = newVal
+  if (!newVal) return
+  if (TOOLS_TABS.has(newVal)) {
+    activeGroup.value = 'tools'
+    toolsTab.value = newVal
+  } else {
+    activeGroup.value = 'settings'
+    settingsTab.value = newVal
+  }
 })
 </script>
 
@@ -130,6 +138,21 @@ watch(() => props.currentPanel, (newVal) => {
   overflow: hidden;
   background: var(--aitext-panel-muted);
   border-left: 1px solid var(--aitext-split-border);
+}
+
+.group-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--aitext-split-border);
+  flex-shrink: 0;
+}
+
+.group-switch {
+  flex-shrink: 0;
 }
 
 .settings-tabs {
@@ -156,21 +179,19 @@ watch(() => props.currentPanel, (newVal) => {
   overflow: hidden;
 }
 
-.settings-tabs :deep(.n-tab-pane) {
+/* Naive UI 动画容器，必须锁死不让溢出覆盖 tab 导航栏 */
+.settings-tabs :deep(.n-tabs-content-wrapper) {
   height: 100%;
   overflow: hidden;
 }
 
-.chapter-info-card {
-  padding: 12px;
-  border-top: 1px solid var(--aitext-split-border);
-  background: var(--app-surface);
+.settings-tabs :deep(.n-tabs-pane-wrapper) {
+  height: 100%;
+  overflow: hidden;
 }
 
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+.settings-tabs :deep(.n-tab-pane) {
+  height: 100%;
+  overflow: hidden;
 }
 </style>
