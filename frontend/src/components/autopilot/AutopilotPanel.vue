@@ -108,7 +108,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import RealtimeLogStream from './RealtimeLogStream.vue'
 
@@ -120,7 +120,8 @@ const status = ref(null)
 const toggling = ref(false)
 const showStartModal = ref(false)
 const startConfig = ref({ max_auto_chapters: 50 })
-let eventSource = null
+/** HTTP/1.1 下同域长连接约 6 路；避免与日志 /stream 双开占满导致其它 API 挂起 */
+let statusPollTimer = null
 
 // 计算属性
 const isRunning  = computed(() => status.value?.autopilot_status === 'running')
@@ -204,18 +205,23 @@ async function fetchStatus() {
   }
 }
 
-function connectSSE() {
-  if (eventSource) eventSource.close()
-  eventSource = new EventSource(`${base()}/events`)
-  eventSource.onmessage = (e) => {
-    status.value = JSON.parse(e.data)
-    emit('status-change', status.value)
-  }
-  eventSource.onerror = () => {
-    eventSource.close()
-    setTimeout(connectSSE, 5000)
+function clearStatusPoll() {
+  if (statusPollTimer) {
+    clearInterval(statusPollTimer)
+    statusPollTimer = null
   }
 }
+
+watch(
+  () => [isRunning.value, needsReview.value],
+  ([running, review]) => {
+    clearStatusPoll()
+    if (running || review) {
+      statusPollTimer = setInterval(() => fetchStatus(), 3000)
+    }
+  },
+  { immediate: true }
+)
 
 function openStartModal() { showStartModal.value = true }
 
@@ -264,8 +270,8 @@ async function clearCircuitBreaker() {
   }
 }
 
-onMounted(() => { fetchStatus(); connectSSE() })
-onUnmounted(() => eventSource?.close())
+onMounted(() => { fetchStatus() })
+onUnmounted(() => clearStatusPoll())
 </script>
 
 <style scoped>
