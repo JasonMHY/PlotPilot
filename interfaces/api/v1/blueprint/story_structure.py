@@ -7,7 +7,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from application.blueprint.services.story_structure_service import StoryStructureService
+from application.blueprint.services.continuous_planning_service import ContinuousPlanningService
 from infrastructure.persistence.database.story_node_repository import StoryNodeRepository
+from infrastructure.persistence.database.chapter_element_repository import ChapterElementRepository
 from infrastructure.persistence.database.sqlite_chapter_repository import SqliteChapterRepository
 from infrastructure.persistence.database.connection import DatabaseConnection
 from application.paths import DATA_DIR
@@ -17,12 +19,57 @@ import os
 router = APIRouter(tags=["story-structure"])
 
 
-def get_service() -> StoryStructureService:
-    """获取服务实例"""
+def get_planning_service() -> ContinuousPlanningService:
+    """获取 AI 规划服务实例"""
+    db_path = str(DATA_DIR / "aitext.db")
+    story_node_repo = StoryNodeRepository(db_path)
+    chapter_element_repo = ChapterElementRepository(db_path)
+
+    # 获取 LLM 服务
+    from infrastructure.ai.providers.anthropic_provider import AnthropicProvider
+    from infrastructure.ai.config.settings import Settings
+
+    llm_service = None
+    api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_AUTH_TOKEN")
+    if api_key:
+        settings = Settings(
+            api_key=api_key.strip(),
+            base_url=os.getenv("ANTHROPIC_BASE_URL")
+        )
+        try:
+            llm_service = AnthropicProvider(settings)
+        except Exception:
+            pass
+
+    from application.world.services.bible_service import BibleService
+    from interfaces.api.dependencies import get_bible_repository
+
+    bible_service = BibleService(get_bible_repository())
+
+    return ContinuousPlanningService(
+        story_node_repo,
+        chapter_element_repo,
+        llm_service,
+        bible_service,
+        chapter_repository=SqliteChapterRepository(DatabaseConnection(db_path)),
+    )
+
+
+def get_service(
+    planning_service: ContinuousPlanningService = Depends(get_planning_service)
+) -> StoryStructureService:
+    """获取故事结构服务实例
+
+    注入 AI 规划服务，使 create_default_structure 方法能够使用 AI 动态生成结构。
+    """
     db_path = str(DATA_DIR / "aitext.db")
     repository = StoryNodeRepository(db_path)
     chapter_repo = SqliteChapterRepository(DatabaseConnection(db_path))
-    return StoryStructureService(repository, chapter_repository=chapter_repo)
+    return StoryStructureService(
+        repository,
+        chapter_repository=chapter_repo,
+        planning_service=planning_service
+    )
 
 
 class CreateNodeRequest(BaseModel):
@@ -164,15 +211,33 @@ async def update_chapter_ranges(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class CreateDefaultStructureRequest(BaseModel):
+    """创建默认结构请求"""
+    total_chapters: int = 100
+    structure_preference: Optional[dict] = None  # 极速模式为 None，精密模式为 {"parts": 3, ...}
+
+
 @router.post("/novels/{novel_id}/structure/create-default")
 async def create_default_structure(
     novel_id: str,
-    total_chapters: int = 100,
+    request: CreateDefaultStructureRequest,
     service: StoryStructureService = Depends(get_service)
 ):
-    """创建默认结构"""
+    """创建默认结构（AI 动态规划）
+
+    支持两种模式：
+    - 极速模式：structure_preference=None，AI 自主决定最优结构
+    - 精密模式：structure_preference={"parts": 3, "volumes_per_part": 3, "acts_per_volume": 3}
+    """
     try:
-        result = await service.create_default_structure(novel_id, total_chapters)
+        result = await service.create_default_structure(
+            novel_id=novel_id,
+            total_chapters=request.total_chapters,
+            structure_preference=request.structure_preference
+        )
         return {"success": True, "structure": result}
+    except RuntimeError as e:
+        # 配置错误（如 planning_service 未注入）
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
