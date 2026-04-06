@@ -1,50 +1,105 @@
 <template>
   <aside class="stats-sidebar">
-    <header class="sidebar-header">
-      <h2 class="sidebar-title">数据概览</h2>
-      <button
-        class="refresh-button"
-        @click="handleRefresh"
-        :disabled="loading"
-        aria-label="刷新数据"
-      >
-        <span :class="{ spinning: loading }">🔄</span>
-      </button>
+    <!-- Brand Header -->
+    <header class="sidebar-brand">
+      <div class="brand-logo">
+        <span class="logo-icon">✦</span>
+        <div class="brand-text">
+          <h1 class="brand-name">PlotPilot</h1>
+          <p class="brand-slogan">墨枢 · 作者的领航员</p>
+        </div>
+      </div>
     </header>
 
-    <div class="stats-grid">
-      <StatCard
-        title="总书籍数"
-        :value="globalStats?.total_books ?? 0"
-        icon="📚"
-        unit="本"
-        :loading="loading"
-      />
-      <StatCard
-        title="总章节数"
-        :value="globalStats?.total_chapters ?? 0"
-        icon="📄"
-        unit="章"
-        :loading="loading"
-      />
-      <StatCard
-        title="总字数"
-        :value="formatNumber(globalStats?.total_words ?? 0)"
-        icon="✍️"
-        unit="字"
-        :loading="loading"
-      />
-      <StatCard
-        title="各阶段书籍"
-        :value="formatStages(globalStats?.books_by_stage ?? {})"
-        icon="📊"
-        :loading="loading"
-      />
-    </div>
+    <!-- Stats Overview -->
+    <section class="stats-section">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="title-icon">📊</span>
+          数据概览
+        </h2>
+        <button
+          class="refresh-btn"
+          @click="handleRefresh"
+          :disabled="loading"
+          :class="{ loading: loading }"
+          aria-label="刷新数据"
+        >
+          <span class="refresh-icon">↻</span>
+        </button>
+      </div>
 
+      <div class="stats-grid">
+        <StatCard
+          title="总书籍数"
+          :value="globalStats?.total_books ?? 0"
+          icon="📚"
+          unit="本"
+          :loading="loading"
+        />
+        <StatCard
+          title="总章节数"
+          :value="globalStats?.total_chapters ?? 0"
+          icon="📄"
+          unit="章"
+          :loading="loading"
+        />
+        <StatCard
+          title="总字数"
+          :value="formatNumber(globalStats?.total_words ?? 0)"
+          icon="✍️"
+          unit="字"
+          :loading="loading"
+        />
+      </div>
+
+      <!-- Stage Distribution -->
+      <div v-if="globalStats?.books_by_stage" class="stage-distribution">
+        <h3 class="stage-title">各阶段书籍</h3>
+        <div class="stage-list">
+          <div
+            v-for="(count, stage) in globalStats.books_by_stage"
+            :key="stage"
+            class="stage-item"
+          >
+            <span class="stage-dot" :class="`stage-${stage}`"></span>
+            <span class="stage-name">{{ getStageLabel(stage as string) }}</span>
+            <span class="stage-count">{{ count }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="quick-actions">
+      <h3 class="actions-title">
+        <span class="title-icon">⚡</span>
+        快捷操作
+      </h3>
+      <div class="actions-grid">
+        <button class="action-btn" @click="$emit('create-book')">
+          <span class="action-icon">✨</span>
+          <span>新建书目</span>
+        </button>
+        <button class="action-btn" @click="$emit('refresh-list')">
+          <span class="action-icon">🔄</span>
+          <span>刷新列表</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer -->
     <footer class="sidebar-footer">
-      <span class="update-time">{{ updateTimeText }}</span>
-      <a href="/architecture.html" target="_blank" class="architecture-link">架构文档</a>
+      <div class="footer-info">
+        <span class="update-time">
+          <span class="time-icon">🕐</span>
+          {{ updateTimeText }}
+        </span>
+      </div>
+      <a href="/architecture.html" target="_blank" class="footer-link">
+        <span class="link-icon">📖</span>
+        架构文档
+      </a>
     </footer>
   </aside>
 </template>
@@ -54,6 +109,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import StatCard from './StatCard.vue'
 import { useStatsStore } from '@/stores/statsStore'
+
+defineEmits<{
+  (e: 'create-book'): void
+  (e: 'refresh-list'): void
+}>()
 
 const statsStore = useStatsStore()
 const { globalStats, loading } = storeToRefs(statsStore)
@@ -98,10 +158,14 @@ function formatNumber(num: number): string {
   return num.toLocaleString()
 }
 
-function formatStages(stages: Record<string, number>): string {
-  return Object.entries(stages)
-    .map(([stage, count]) => `${stage}:${count}`)
-    .join(' ')
+function getStageLabel(stage: string): string {
+  const labels: Record<string, string> = {
+    planning: '规划中',
+    writing: '写作中',
+    reviewing: '审稿中',
+    completed: '已完成',
+  }
+  return labels[stage] || stage
 }
 
 function formatTime(date: Date | null): string {
@@ -136,102 +200,297 @@ const updateTimeText = computed(() => formatTime(lastUpdateTime.value))
   position: fixed;
   left: 0;
   top: 0;
-  width: 280px;
+  width: 300px;
   height: 100vh;
-  background: #f5f5f5;
-  padding: 24px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-right: 1px solid rgba(15, 23, 42, 0.06);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  z-index: 100;
 }
 
-.sidebar-header {
+/* Brand Header */
+.sidebar-brand {
+  padding: 28px 24px 24px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-brand::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.brand-logo {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
+  gap: 14px;
 }
 
-.sidebar-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
-}
-
-.refresh-button {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
+.logo-icon {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: background-color 0.2s ease-in-out;
+  font-size: 22px;
+  color: #fff;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.refresh-button:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.05);
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.refresh-button:disabled {
+.brand-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.brand-slogan {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* Stats Section */
+.stats-section {
+  padding: 24px;
+  flex: 1;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-icon {
+  font-size: 16px;
+}
+
+.refresh-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  color: #4f46e5;
+}
+
+.refresh-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-.refresh-button:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-.refresh-button span {
-  font-size: 20px;
-  color: #6b7280;
-}
-
-.refresh-button .spinning {
+.refresh-btn.loading .refresh-icon {
   animation: spin 1s linear infinite;
 }
 
+.refresh-icon {
+  font-size: 16px;
+}
+
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .stats-grid {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  flex: 1;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-.sidebar-footer {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+/* Stage Distribution */
+.stage-distribution {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.stage-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0 0 12px;
+}
+
+.stage-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+.stage-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.stage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stage-dot.stage-planning { background: #3b82f6; }
+.stage-dot.stage-writing { background: #f59e0b; }
+.stage-dot.stage-reviewing { background: #8b5cf6; }
+.stage-dot.stage-completed { background: #10b981; }
+
+.stage-name {
+  flex: 1;
+  font-size: 13px;
+  color: #475569;
+}
+
+.stage-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  background: #f1f5f9;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+
+/* Quick Actions */
+.quick-actions {
+  padding: 0 24px 24px;
+}
+
+.actions-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px;
+  background: white;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  color: #475569;
+}
+
+.action-btn:hover {
+  background: #f8fafc;
+  border-color: #4f46e5;
+  color: #4f46e5;
+  transform: translateY(-1px);
+}
+
+.action-icon {
+  font-size: 20px;
+}
+
+/* Footer */
+.sidebar-footer {
+  padding: 20px 24px;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.footer-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .update-time {
   font-size: 12px;
-  color: #9ca3af;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.architecture-link {
+.time-icon {
+  font-size: 14px;
+}
+
+.footer-link {
   font-size: 12px;
-  color: #9ca3af;
+  color: #64748b;
   text-decoration: none;
-  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
-.architecture-link:hover {
-  color: #6b7280;
+.footer-link:hover {
+  color: #4f46e5;
+  background: #f8fafc;
+}
+
+.link-icon {
+  font-size: 14px;
 }
 </style>
