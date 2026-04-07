@@ -147,8 +147,8 @@
               class="dialogue-item"
             >
               <div class="dialogue-meta">
-                <n-tag type="info" size="tiny" round>第{{ d.chapter }}章</n-tag>
-                <n-tag type="warning" size="tiny" round>{{ d.speaker }}</n-tag>
+                <n-tag size="tiny" round>第{{ d.chapter }}章</n-tag>
+                <n-tag type="success" size="tiny" round>{{ d.speaker }}</n-tag>
               </div>
               <n-text class="dialogue-content">{{ d.content }}</n-text>
             </div>
@@ -396,7 +396,7 @@ watch(deskTick, () => {
 }
 
 .generated-output {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(124, 58, 237, 0.08));
+  background: rgba(24, 160, 88, 0.06);
 }
 
 .dialogue-section :deep(.n-card__header) {
@@ -406,17 +406,19 @@ watch(deskTick, () => {
 .dialogue-item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  background: var(--n-color);
+  gap: 8px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
   border-radius: 8px;
-  border: 1px solid var(--n-border-color);
-  transition: all 0.15s ease;
+  border: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .dialogue-item:hover {
-  border-color: var(--n-border-color-hover);
-  transform: translateX(2px);
+  background: linear-gradient(135deg, #f0f7ff 0%, #e8f4ff 100%);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
 }
 
 .dialogue-meta {
@@ -446,7 +448,8 @@ watch(deskTick, () => {
   padding: 12px 16px;
   font-weight: 700;
   font-size: 14px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(124, 58, 237, 0.08));
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid var(--n-border-color);
 }
 
 .sandbox-panel :deep(.n-collapse-item__header-main) {
