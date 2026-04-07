@@ -100,26 +100,51 @@
           <strong>自动托管</strong>：守护进程已在后端自动启动，配置好参数后点击"启动"即可开始自动写作。
         </n-alert>
         <n-form>
-          <!-- 目标章数（只读显示） -->
+          <!-- 目标章数（可编辑） -->
           <n-form-item label="目标章数">
             <n-input-number 
-              :value="targetChapters"
-              disabled
+              v-model:value="startConfig.target_chapters"
+              :min="1"
+              :max="9999"
+              :step="10"
               style="width: 100%"
+              @update:value="updateProtectionLimit"
             />
           </n-form-item>
           <!-- 保护上限 -->
           <n-form-item label="保护上限（章节数，防止意外消耗）">
             <n-input-number 
               v-model:value="startConfig.max_auto_chapters" 
-              :min="targetChapters"
+              :min="startConfig.target_chapters"
               :max="9999"
               :step="10"
               style="width: 100%"
             />
           </n-form-item>
+          
+          <!-- 全自动模式开关 -->
+          <n-form-item label="全自动模式">
+            <n-space align="center" justify="space-between" style="width: 100%">
+              <n-switch 
+                v-model:value="startConfig.auto_approve_mode"
+                :round="false"
+              >
+                <template #checked>开启</template>
+                <template #unchecked>关闭</template>
+              </n-switch>
+              <n-text depth="3" style="font-size: 12px">
+                跳过所有人工审阅
+              </n-text>
+            </n-space>
+          </n-form-item>
+          
           <n-alert type="info" :show-icon="false" style="font-size: 11px; margin-top: -8px">
-            达到 <strong>{{ targetChapters }} 章</strong> 目标时自动完成全书；保护上限已自动设置为 <strong>目标 + 20</strong>。
+            <template v-if="startConfig.auto_approve_mode">
+              <strong>全自动模式已开启</strong>：系统将跳过所有审阅环节，自动运行直到写完。
+            </template>
+            <template v-else>
+              达到 <strong>{{ startConfig.target_chapters }} 章</strong> 目标时自动完成全书；保护上限已自动设置为 <strong>目标 + 20</strong>。
+            </template>
           </n-alert>
         </n-form>
       </n-space>
@@ -139,7 +164,11 @@ const message = useMessage()
 const status = ref(null)
 const toggling = ref(false)
 const showStartModal = ref(false)
-const startConfig = ref({ max_auto_chapters: 120 })  // 默认保护上限
+const startConfig = ref({ 
+  target_chapters: 100,
+  max_auto_chapters: 120,
+  auto_approve_mode: false
+})
 
 // 目标章数（从 status 获取）
 const targetChapters = computed(() => status.value?.target_chapters || 100)
@@ -264,23 +293,80 @@ watch(
 )
 
 function openStartModal() {
-  // 打开弹窗时，自动计算保护上限 = 目标 + 20
+  // 打开弹窗时，从当前状态初始化设置
   const target = status.value?.target_chapters || 100
-  startConfig.value.max_auto_chapters = target + 20
+  const autoApprove = status.value?.auto_approve_mode ?? false
+  startConfig.value = {
+    target_chapters: target,
+    max_auto_chapters: target + 20,
+    auto_approve_mode: autoApprove
+  }
   showStartModal.value = true
+}
+
+function updateProtectionLimit() {
+  // 当目标章数改变时，自动调整保护上限
+  const target = startConfig.value.target_chapters
+  if (startConfig.value.max_auto_chapters < target + 20) {
+    startConfig.value.max_auto_chapters = target + 20
+  }
 }
 
 async function start() {
   toggling.value = true
-  const res = await fetch(`${base()}/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(startConfig.value)
-  })
-  if (res.ok) message.success('自动驾驶已启动')
-  else message.error('启动失败')
-  await fetchStatus()
-  toggling.value = false
+  try {
+    // 先更新小说的目标章节数和全自动模式（如果需要修改）
+    const currentTarget = status.value?.target_chapters
+    const newTarget = startConfig.value.target_chapters
+    const currentAutoApprove = status.value?.auto_approve_mode ?? false
+    const newAutoApprove = startConfig.value.auto_approve_mode
+    
+    if (currentTarget !== newTarget || currentAutoApprove !== newAutoApprove) {
+      const updateRes = await fetch(`/api/v1/novels/${props.novelId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          target_chapters: newTarget
+        })
+      })
+      if (!updateRes.ok) {
+        message.error('更新目标章节数失败')
+        return
+      }
+      
+      // 更新全自动模式
+      if (currentAutoApprove !== newAutoApprove) {
+        const approveRes = await fetch(`/api/v1/novels/${props.novelId}/auto-approve-mode`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            auto_approve_mode: newAutoApprove
+          })
+        })
+        if (!approveRes.ok) {
+          message.error('更新全自动模式失败')
+          return
+        }
+      }
+    }
+    
+    // 然后启动自动驾驶
+    const res = await fetch(`${base()}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        max_auto_chapters: startConfig.value.max_auto_chapters
+      })
+    })
+    if (res.ok) {
+      const modeText = startConfig.value.auto_approve_mode ? '（全自动模式）' : ''
+      message.success(`自动驾驶已启动${modeText}`)
+    }
+    else message.error('启动失败')
+    await fetchStatus()
+  } finally {
+    toggling.value = false
+  }
 }
 
 async function stop() {

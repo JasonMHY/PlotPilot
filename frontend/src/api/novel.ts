@@ -19,6 +19,8 @@ export interface NovelDTO {
   total_word_count: number
   has_bible?: boolean
   has_outline?: boolean
+  autopilot_status?: string
+  auto_approve_mode?: boolean
 }
 
 export const novelApi = {
@@ -59,9 +61,29 @@ export const novelApi = {
     apiClient.put<NovelDTO>(`/novels/${novelId}/stage`, { stage }) as Promise<NovelDTO>,
 
   /**
+   * Update novel basic information
+   * PUT /api/v1/novels/{novelId}
+   */
+  updateNovel: (novelId: string, data: { 
+    title?: string
+    author?: string
+    target_chapters?: number
+    premise?: string
+  }) => apiClient.put<NovelDTO>(`/novels/${novelId}`, data) as Promise<NovelDTO>,
+
+  /**
    * 小说统计（与 Chapter 仓储一致，用于顶栏等；勿再用 /api/stats/book）
    * GET /api/v1/novels/{novelId}/statistics
    */
   getNovelStatistics: (novelId: string) =>
     apiClient.get<BookStats>(`/novels/${novelId}/statistics`) as Promise<BookStats>,
+
+  /**
+   * Update auto approve mode
+   * PATCH /api/v1/novels/{novelId}/auto-approve-mode
+   */
+  updateAutoApproveMode: (novelId: string, autoApproveMode: boolean) =>
+    apiClient.patch<NovelDTO>(`/novels/${novelId}/auto-approve-mode`, { 
+      auto_approve_mode: autoApproveMode 
+    }) as Promise<NovelDTO>,
 }
