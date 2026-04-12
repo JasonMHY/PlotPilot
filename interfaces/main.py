@@ -2,6 +2,14 @@
 
 提供 RESTful API 接口。
 """
+# 必须在任何 HuggingFace/Transformers 导入前设置离线模式
+import os
+os.environ['HF_HUB_OFFLINE'] = '1'
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
+os.environ['HF_DATASETS_OFFLINE'] = '1'
+os.environ['CURL_CA_BUNDLE'] = ''
+os.environ['REQUESTS_CA_BUNDLE'] = ''
+
 from pathlib import Path
 import sys
 import time
@@ -22,7 +30,6 @@ except Exception:
 
 # 配置日志（必须在导入其他模块前）
 from interfaces.api.middleware.logging_config import setup_logging
-import os
 
 log_level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
 log_file = os.getenv("LOG_FILE", "logs/aitext.log")
