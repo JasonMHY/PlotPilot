@@ -75,6 +75,16 @@ class AutoBibleGenerator:
         self.worldbuilding_service = worldbuilding_service
         self.triple_repository = triple_repository
 
+    def _ensure_bible_exists(self, novel_id: str) -> None:
+        """确保 novel 对应的 Bible 记录存在。"""
+        existing_bible = self.bible_service.get_bible_by_novel(novel_id)
+        if existing_bible is not None:
+            return
+
+        bible_id = f"{novel_id}-bible"
+        self.bible_service.create_bible(bible_id, novel_id)
+        logger.info("Successfully created Bible %s for novel %s", bible_id, novel_id)
+
     def _prepare_locations_for_save(self, novel_id: str, locations: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
         """规范化地点列表，确保父节点优先、缺失父节点降级为根节点。"""
         prepared: list[Dict[str, Any]] = []
@@ -178,24 +188,11 @@ class AutoBibleGenerator:
         logger.info(f"Generating Bible for novel: {premise[:50]}... (stage: {stage})")
 
         # 1. 创建空 Bible（如果不存在）
-        bible_id = f"{novel_id}-bible"
         try:
-            existing_bible = self.bible_service.get_bible_by_novel(novel_id)
-            if existing_bible:
-                logger.info(f"Bible already exists for novel {novel_id}")
-            else:
-                logger.info(f"Bible not found for novel {novel_id}, creating new one")
-                self.bible_service.create_bible(bible_id, novel_id)
-                logger.info(f"Successfully created Bible {bible_id} for novel {novel_id}")
+            self._ensure_bible_exists(novel_id)
         except Exception as e:
             logger.error(f"Error checking/creating Bible: {e}")
-            # 尝试创建
-            try:
-                self.bible_service.create_bible(bible_id, novel_id)
-                logger.info(f"Successfully created Bible {bible_id} for novel {novel_id}")
-            except Exception as create_error:
-                logger.error(f"Failed to create Bible: {create_error}")
-                raise
+            raise
 
         # 2. 根据阶段生成不同内容
         if stage == "all":
@@ -206,13 +203,7 @@ class AutoBibleGenerator:
                 await self._save_worldbuilding(novel_id, bible_data["worldbuilding"])
 
         elif stage == "worldbuilding":
-            # 确保Bible记录存在
-            try:
-                self.bible_service.get_bible_by_novel(novel_id)
-            except EntityNotFoundError:
-                bible_id = f"{novel_id}-bible"
-                self.bible_service.create_bible(bible_id, novel_id)
-                logger.info(f"Created Bible record: {bible_id}")
+            self._ensure_bible_exists(novel_id)
 
             # 只生成世界观和文风
             bible_data = await self._generate_worldbuilding_and_style(premise, target_chapters)
@@ -240,13 +231,7 @@ class AutoBibleGenerator:
                 await self._save_worldbuilding(novel_id, bible_data["worldbuilding"])
 
         elif stage == "characters":
-            # 确保Bible记录存在
-            try:
-                self.bible_service.get_bible_by_novel(novel_id)
-            except EntityNotFoundError:
-                bible_id = f"{novel_id}-bible"
-                self.bible_service.create_bible(bible_id, novel_id)
-                logger.info(f"Created Bible record: {bible_id}")
+            self._ensure_bible_exists(novel_id)
 
             # 基于已有世界观生成人物
             existing_worldbuilding = self._load_worldbuilding(novel_id)
@@ -285,13 +270,7 @@ class AutoBibleGenerator:
                 await self._generate_character_triples(novel_id, character_ids)
 
         elif stage == "locations":
-            # 确保Bible记录存在
-            try:
-                self.bible_service.get_bible_by_novel(novel_id)
-            except EntityNotFoundError:
-                bible_id = f"{novel_id}-bible"
-                self.bible_service.create_bible(bible_id, novel_id)
-                logger.info(f"Created Bible record: {bible_id}")
+            self._ensure_bible_exists(novel_id)
 
             # 基于已有世界观和人物生成地点
             existing_worldbuilding = self._load_worldbuilding(novel_id)
@@ -448,13 +427,7 @@ JSON 格式（不要有其他文字）：
 
         # 先确保 Bible 记录存在
         try:
-            from domain.novel.value_objects.novel_id import NovelId
-            existing_bible = self.bible_service.bible_repository.get_by_novel_id(NovelId(novel_id))
-            if existing_bible is None:
-                # 创建 Bible 记录
-                bible_id = f"bible-{novel_id}"
-                self.bible_service.create_bible(bible_id=bible_id, novel_id=novel_id)
-                logger.info(f"Created Bible record for novel {novel_id}")
+            self._ensure_bible_exists(novel_id)
         except Exception as e:
             logger.error(f"Failed to ensure Bible exists: {e}")
             return
